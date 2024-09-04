@@ -123,6 +123,7 @@ public class FeignClientFactoryBean
 		FeignLoggerFactory loggerFactory = get(context, FeignLoggerFactory.class);
 		Logger logger = loggerFactory.create(type);
 
+		// Feign 实例对象 建造器
 		// @formatter:off
 		Feign.Builder builder = get(context, Feign.Builder.class)
 				// required values
@@ -132,6 +133,7 @@ public class FeignClientFactoryBean
 				.contract(get(context, Contract.class));
 		// @formatter:on
 
+		// 配置 feign 客户端
 		configureFeign(context, builder);
 
 		return builder;
@@ -149,21 +151,31 @@ public class FeignClientFactoryBean
 	}
 
 	protected void configureFeign(FeignContext context, Feign.Builder builder) {
+		// 配置文件
 		FeignClientProperties properties = beanFactory != null ? beanFactory.getBean(FeignClientProperties.class)
 				: applicationContext.getBean(FeignClientProperties.class);
 
 		FeignClientConfigurer feignClientConfigurer = getOptional(context, FeignClientConfigurer.class);
+		// todo 看字面意思应该是是否要继承父上下文 默认 true
 		setInheritParentContext(feignClientConfigurer.inheritParentConfiguration());
 
 		if (properties != null && inheritParentContext) {
 			if (properties.isDefaultToProperties()) {
+				// 先捞Java Config 中的配置，再用配置文件中的覆盖
 				configureUsingConfiguration(context, builder);
+				// 再捞配置文件中的默认配置
 				configureUsingProperties(properties.getConfig().get(properties.getDefaultConfig()), builder);
+				// 针对 contextId 的个性化配置
 				configureUsingProperties(properties.getConfig().get(contextId), builder);
 			}
 			else {
+				// 再捞配置文件中的默认配置
 				configureUsingProperties(properties.getConfig().get(properties.getDefaultConfig()), builder);
+				// 针对 contextId 的个性化配置
 				configureUsingProperties(properties.getConfig().get(contextId), builder);
+                // todo 搞不懂为什么要调换位置 回头可以问问作者
+				// todo 推测 defaultToProperties 的意思是什么配置类型优先的意思，默认为配置文件优先
+				// todo 代码无注释，读者两行泪
 				configureUsingConfiguration(context, builder);
 			}
 		}
@@ -173,25 +185,30 @@ public class FeignClientFactoryBean
 	}
 
 	protected void configureUsingConfiguration(FeignContext context, Feign.Builder builder) {
+		// 日志等级
 		Logger.Level level = getInheritedAwareOptional(context, Logger.Level.class);
 		if (level != null) {
 			builder.logLevel(level);
 		}
+		// 重试器
 		Retryer retryer = getInheritedAwareOptional(context, Retryer.class);
 		if (retryer != null) {
 			builder.retryer(retryer);
 		}
+		// 错误解码器
 		ErrorDecoder errorDecoder = getInheritedAwareOptional(context, ErrorDecoder.class);
 		if (errorDecoder != null) {
 			builder.errorDecoder(errorDecoder);
 		}
 		else {
+			// 错误解码器工厂
 			FeignErrorDecoderFactory errorDecoderFactory = getOptional(context, FeignErrorDecoderFactory.class);
 			if (errorDecoderFactory != null) {
 				ErrorDecoder factoryErrorDecoder = errorDecoderFactory.create(type);
 				builder.errorDecoder(factoryErrorDecoder);
 			}
 		}
+		// 设置项
 		Request.Options options = getInheritedAwareOptional(context, Request.Options.class);
 		if (options == null) {
 			options = getOptionsByName(context, contextId);
@@ -206,23 +223,29 @@ public class FeignClientFactoryBean
 		Map<String, RequestInterceptor> requestInterceptors = getInheritedAwareInstances(context,
 				RequestInterceptor.class);
 		if (requestInterceptors != null) {
+            // 请求拦截器
 			List<RequestInterceptor> interceptors = new ArrayList<>(requestInterceptors.values());
 			AnnotationAwareOrderComparator.sort(interceptors);
 			builder.requestInterceptors(interceptors);
 		}
+        // 查询映射编码器
+        // todo 比较少用 它用于将对象编码为查询参数名称和值的映射（Map），从而在使用 Feign 客户端进行 HTTP 请求时，可以将对象的属性作为查询参数传递。这个接口提供了一种灵活的方式来将对象的字段转换为 HTTP 查询字符串，使得构建 URL 查询参数变得更加简单和模块化。
 		QueryMapEncoder queryMapEncoder = getInheritedAwareOptional(context, QueryMapEncoder.class);
 		if (queryMapEncoder != null) {
 			builder.queryMapEncoder(queryMapEncoder);
 		}
+        // todo 一般为false 此标志指示 应 decoder 处理具有 404 状态的响应，特别是返回 null 或 empty 而不是引发 FeignException。
 		if (decode404) {
 			builder.dismiss404();
 		}
+        // 异常传播策略
 		ExceptionPropagationPolicy exceptionPropagationPolicy = getInheritedAwareOptional(context,
 				ExceptionPropagationPolicy.class);
 		if (exceptionPropagationPolicy != null) {
 			builder.exceptionPropagationPolicy(exceptionPropagationPolicy);
 		}
 
+        // todo 能力增强接口 笔记中有详细描述
 		Map<String, Capability> capabilities = getInheritedAwareInstances(context, Capability.class);
 		if (capabilities != null) {
 			capabilities.values().stream().sorted(AnnotationAwareOrderComparator.INSTANCE)
@@ -235,11 +258,12 @@ public class FeignClientFactoryBean
 		if (config == null) {
 			return;
 		}
-
+		// 日志级别 设置
 		if (config.getLoggerLevel() != null) {
 			builder.logLevel(config.getLoggerLevel());
 		}
 
+		// 连接、读取 超时时间设置
 		if (!refreshableClient) {
 			connectTimeoutMillis = config.getConnectTimeout() != null ? config.getConnectTimeout()
 					: connectTimeoutMillis;
@@ -250,16 +274,19 @@ public class FeignClientFactoryBean
 					TimeUnit.MILLISECONDS, followRedirects));
 		}
 
+		// 重试器设置
 		if (config.getRetryer() != null) {
 			Retryer retryer = getOrInstantiate(config.getRetryer());
 			builder.retryer(retryer);
 		}
 
+		// 错误解码器设置
 		if (config.getErrorDecoder() != null) {
 			ErrorDecoder errorDecoder = getOrInstantiate(config.getErrorDecoder());
 			builder.errorDecoder(errorDecoder);
 		}
 
+		// 请求拦截器设置
 		if (config.getRequestInterceptors() != null && !config.getRequestInterceptors().isEmpty()) {
 			// this will add request interceptor to builder, not replace existing
 			for (Class<RequestInterceptor> bean : config.getRequestInterceptors()) {
@@ -268,35 +295,45 @@ public class FeignClientFactoryBean
 			}
 		}
 
+		//  此标志指示 应 decoder 处理具有 404 状态的响应，特别是返回 null 或 empty 而不是引发 FeignException。
 		if (config.getDecode404() != null) {
 			if (config.getDecode404()) {
 				builder.dismiss404();
 			}
 		}
 
+		// 编码器
 		if (Objects.nonNull(config.getEncoder())) {
 			builder.encoder(getOrInstantiate(config.getEncoder()));
 		}
 
+		// 设置固定请求头
 		addDefaultRequestHeaders(config, builder);
+
+		// 设置固定请求查询参数
 		addDefaultQueryParams(config, builder);
 
+		// 解码器
 		if (Objects.nonNull(config.getDecoder())) {
 			builder.decoder(getOrInstantiate(config.getDecoder()));
 		}
 
+		// 设置契约（定义哪些注释和值在接口上有效。）
 		if (Objects.nonNull(config.getContract())) {
 			builder.contract(getOrInstantiate(config.getContract()));
 		}
 
+		// 异常传播策略 todo 目前不知道干啥的
 		if (Objects.nonNull(config.getExceptionPropagationPolicy())) {
 			builder.exceptionPropagationPolicy(config.getExceptionPropagationPolicy());
 		}
 
+		// todo 能力增强接口 笔记中有详细描述
 		if (config.getCapabilities() != null) {
 			config.getCapabilities().stream().map(this::getOrInstantiate).forEach(builder::addCapability);
 		}
 
+		// 查询映射编码器
 		if (config.getQueryMapEncoder() != null) {
 			builder.queryMapEncoder(getOrInstantiate(config.getQueryMapEncoder()));
 		}
@@ -412,6 +449,7 @@ public class FeignClientFactoryBean
 				: applicationContext.getBean(FeignContext.class);
 		Feign.Builder builder = feign(context);
 
+		// 不存在 url 就说明需要走服务发现
 		if (!StringUtils.hasText(url)) {
 
 			if (LOG.isInfoEnabled()) {
@@ -426,10 +464,12 @@ public class FeignClientFactoryBean
 			url += cleanPath();
 			return (T) loadBalance(builder, context, new HardCodedTarget<>(type, name, url));
 		}
+		// 具体的URL 不需要走服务发现
 		if (StringUtils.hasText(url) && !url.startsWith("http://") && !url.startsWith("https://")) {
 			url = "http://" + url;
 		}
 		String url = this.url + cleanPath();
+		// 获取 Client
 		Client client = getOptional(context, Client.class);
 		if (client != null) {
 			if (client instanceof FeignBlockingLoadBalancerClient) {
@@ -444,7 +484,7 @@ public class FeignClientFactoryBean
 			}
 			builder.client(client);
 		}
-
+		// todo 这里以下未阅读
 		applyBuildCustomizers(context, builder);
 
 		Targeter targeter = get(context, Targeter.class);

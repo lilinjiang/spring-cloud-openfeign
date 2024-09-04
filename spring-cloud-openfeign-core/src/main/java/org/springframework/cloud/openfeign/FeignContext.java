@@ -24,6 +24,7 @@ import org.springframework.cloud.context.named.NamedContextFactory;
 import org.springframework.lang.Nullable;
 
 /**
+ * 创建 feign 类实例的工厂。它为每个客户端名称创建一个 Spring ApplicationContext，并从中提取所需的 bean。
  * A factory that creates instances of feign classes. It creates a Spring
  * ApplicationContext per client name, and extracts the beans that it needs from there.
  *

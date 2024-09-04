@@ -42,6 +42,7 @@ import org.springframework.core.annotation.AliasFor;
 public @interface FeignClient {
 
 	/**
+	 * 服务名称
 	 * The name of the service with optional protocol prefix. Synonym for {@link #name()
 	 * name}. A name must be specified for all clients, whether or not a url is provided.
 	 * Can be specified as property key, eg: ${propertyKey}.
@@ -51,6 +52,7 @@ public @interface FeignClient {
 	String value() default "";
 
 	/**
+	 * bean ID 如果存在，它将用作 bean 名称而不是名称，但不会用作服务 ID。
 	 * This will be used as the bean name instead of name if present, but will not be used
 	 * as a service id.
 	 * @return bean name instead of name if present
@@ -78,6 +80,10 @@ public @interface FeignClient {
 	String qualifier() default "";
 
 	/**
+	 * @Qualifiers Feign 客户端的值。
+	 * 如果 和 都qualifier()存在，我们将使用后者，除非 返回的qualifiers()数组为空或仅包含null或空格值，在这种情况下，
+	 * 我们将首先回退到qualifier()默认值 = ，如果它也不存在，则回退到默认值 = contextId + "FeignClient"。qualifiers()
+	 *
 	 * @return the <code>@Qualifiers</code> value for the feign client.
 	 *
 	 * If both {@link #qualifier()} and {@link #qualifiers()} are present, we will use the

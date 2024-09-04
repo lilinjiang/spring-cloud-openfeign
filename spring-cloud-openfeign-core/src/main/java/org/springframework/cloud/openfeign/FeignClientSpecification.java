@@ -22,6 +22,8 @@ import java.util.Objects;
 import org.springframework.cloud.context.named.NamedContextFactory;
 
 /**
+ * 配置类容器
+ * FeignClientSpecification 在 Spring Cloud 环境中用于配置 Feign 客户端的自定义属性，比如编码器、解码器、错误处理、拦截器等。
  * @author Dave Syer
  * @author Gregor Zurowski
  */

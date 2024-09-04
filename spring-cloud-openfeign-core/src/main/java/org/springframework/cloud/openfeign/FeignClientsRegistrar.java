@@ -147,7 +147,9 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 
 	@Override
 	public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
+		// 注册默认配置
 		registerDefaultConfiguration(metadata, registry);
+		// 注册 Feign 客户端
 		registerFeignClients(metadata, registry);
 	}
 
@@ -172,15 +174,18 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 		Map<String, Object> attrs = metadata.getAnnotationAttributes(EnableFeignClients.class.getName());
 		final Class<?>[] clients = attrs == null ? null : (Class<?>[]) attrs.get("clients");
 		if (clients == null || clients.length == 0) {
+			// 扫描包路径下的 FeignClient
 			ClassPathScanningCandidateComponentProvider scanner = getScanner();
 			scanner.setResourceLoader(this.resourceLoader);
 			scanner.addIncludeFilter(new AnnotationTypeFilter(FeignClient.class));
 			Set<String> basePackages = getBasePackages(metadata);
 			for (String basePackage : basePackages) {
+				// todo 目前未细看如何去加载的BeanDefinition
 				candidateComponents.addAll(scanner.findCandidateComponents(basePackage));
 			}
 		}
 		else {
+			// 直接配置在启动注解上的FeignClient
 			for (Class<?> clazz : clients) {
 				candidateComponents.add(new AnnotatedGenericBeanDefinition(clazz));
 			}
@@ -196,9 +201,11 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 				Map<String, Object> attributes = annotationMetadata
 						.getAnnotationAttributes(FeignClient.class.getCanonicalName());
 
+				// FeignClient 的 Bean 名称
 				String name = getClientName(attributes);
+				// 注册 FeignClient 的定制化配置
 				registerClientConfiguration(registry, name, attributes.get("configuration"));
-
+				// 注册 FeignClientFactoryBean
 				registerFeignClient(registry, annotationMetadata, attributes);
 			}
 		}
@@ -206,27 +213,38 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 
 	private void registerFeignClient(BeanDefinitionRegistry registry, AnnotationMetadata annotationMetadata,
 			Map<String, Object> attributes) {
+		// FeignClient 注解的所在类名
 		String className = annotationMetadata.getClassName();
+		// Class 对象
 		Class clazz = ClassUtils.resolveClassName(className, null);
+		// Bean 工厂
 		ConfigurableBeanFactory beanFactory = registry instanceof ConfigurableBeanFactory
 				? (ConfigurableBeanFactory) registry : null;
+		// Bean 名称 todo 这里好像不对
 		String contextId = getContextId(beanFactory, attributes);
+		// FeignClient 名称
 		String name = getName(attributes);
+
+		// 基础信息设置
 		FeignClientFactoryBean factoryBean = new FeignClientFactoryBean();
 		factoryBean.setBeanFactory(beanFactory);
 		factoryBean.setName(name);
 		factoryBean.setContextId(contextId);
 		factoryBean.setType(clazz);
 		factoryBean.setRefreshableClient(isClientRefreshEnabled());
+
+		// 构建 BeanDefinitionBuilder 并注册 Bean 对象获取器
 		BeanDefinitionBuilder definition = BeanDefinitionBuilder.genericBeanDefinition(clazz, () -> {
 			factoryBean.setUrl(getUrl(beanFactory, attributes));
 			factoryBean.setPath(getPath(beanFactory, attributes));
 			factoryBean.setDecode404(Boolean.parseBoolean(String.valueOf(attributes.get("decode404"))));
+			// 降级方法
 			Object fallback = attributes.get("fallback");
 			if (fallback != null) {
 				factoryBean.setFallback(fallback instanceof Class ? (Class<?>) fallback
 						: ClassUtils.resolveClassName(fallback.toString(), null));
 			}
+			// 降级工厂类
 			Object fallbackFactory = attributes.get("fallbackFactory");
 			if (fallbackFactory != null) {
 				factoryBean.setFallbackFactory(fallbackFactory instanceof Class ? (Class<?>) fallbackFactory
@@ -235,7 +253,9 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 			return factoryBean.getObject();
 		});
 		definition.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_TYPE);
+		// 延迟加载
 		definition.setLazyInit(true);
+		// 参数验证 （降级方法、降级工厂）
 		validate(attributes);
 
 		AbstractBeanDefinition beanDefinition = definition.getBeanDefinition();
@@ -247,14 +267,16 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 
 		beanDefinition.setPrimary(primary);
 
+		// 设置别名
 		String[] qualifiers = getQualifiers(attributes);
 		if (ObjectUtils.isEmpty(qualifiers)) {
 			qualifiers = new String[] { contextId + "FeignClient" };
 		}
 
 		BeanDefinitionHolder holder = new BeanDefinitionHolder(beanDefinition, className, qualifiers);
+		// 注册 Bean BeanDefinition
 		BeanDefinitionReaderUtils.registerBeanDefinition(holder, registry);
-
+        // 注册 设置Bean 默认不注册
 		registerOptionsBeanDefinition(registry, contextId);
 	}
 
@@ -420,6 +442,11 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 	}
 
 	/**
+	 *
+	  feign.client.refresh-enabled
+	  是 Spring Cloud Feign 的一个配置属性，用于控制 Feign 客户端是否支持在运行时刷新配置。
+	   它通常用于微服务架构中，当某些配置（如超时、重试策略等）发生变化时，可以通过动态刷新配置来避免重新启动应用程序，从而提高系统的灵活性和可维护性。
+
 	 * This method is meant to create {@link Request.Options} beans definition with
 	 * refreshScope.
 	 * @param registry spring bean definition registry
