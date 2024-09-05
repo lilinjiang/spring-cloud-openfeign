@@ -179,6 +179,7 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 
 	@Override
 	protected void processAnnotationOnClass(MethodMetadata data, Class<?> clz) {
+		// todo @RequestMapping annotation is not allowed on @FeignClient interfaces.
 		RequestMapping classAnnotation = findMergedAnnotation(clz, RequestMapping.class);
 		if (classAnnotation != null) {
 			LOG.error("Cannot process class: " + clz.getName()
@@ -199,6 +200,7 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 
 	@Override
 	protected void processAnnotationOnMethod(MethodMetadata data, Annotation methodAnnotation, Method method) {
+		// CollectionFormat 针对于集合数据格式化方式
 		if (CollectionFormat.class.isInstance(methodAnnotation)) {
 			CollectionFormat collectionFormat = findMergedAnnotation(method, CollectionFormat.class);
 			data.template().collectionFormat(collectionFormat.value());
@@ -209,23 +211,28 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 			return;
 		}
 
+		// 获取注解
 		RequestMapping methodMapping = findMergedAnnotation(method, RequestMapping.class);
-		// HTTP Method
+		// HTTP Method GET / POST / PUT / DELETE
 		RequestMethod[] methods = methodMapping.method();
 		if (methods.length == 0) {
 			methods = new RequestMethod[] { RequestMethod.GET };
 		}
+		// 校验只能添加一个 HTTP Method
 		checkOne(method, methods, "method");
+		// 设置 HTTP Method
 		data.template().method(Request.HttpMethod.valueOf(methods[0].name()));
 
-		// path
+		// 校验 path 只能最多有一个
 		checkAtMostOne(method, methodMapping.value(), "value");
 		if (methodMapping.value().length > 0) {
 			String pathValue = emptyToNull(methodMapping.value()[0]);
 			if (pathValue != null) {
+				// 解析真实 path  如果是${}取${}对应的真实值,非${}返回原值
 				pathValue = resolve(pathValue);
 				// Append path from @RequestMapping if value is present on method
 				if (!pathValue.startsWith("/") && !data.template().path().endsWith("/")) {
+					// 补齐 "/" 分割符
 					pathValue = "/" + pathValue;
 				}
 				data.template().uri(pathValue, true);
@@ -235,15 +242,16 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 			}
 		}
 
-		// produces
+		// produces 期望相应报文的格式  Accept
 		parseProduces(data, method, methodMapping);
 
-		// consumes
+		// 仅接受 consumes 配置的请求报文格式 Content-Type
 		parseConsumes(data, method, methodMapping);
 
-		// headers
+		// headers 见名知意设置请求头
 		parseHeaders(data, method, methodMapping);
 
+		// todo 目前不知道什么用暂时先不管
 		data.indexToExpander(new LinkedHashMap<>());
 	}
 
