@@ -20,6 +20,10 @@ import feign.Feign;
 import feign.Target;
 
 /**
+ * Targeter 是 Spring Cloud Feign 框架中的一个接口，
+ * 用于定义如何将 Feign 客户端实例与具体的目标服务（Feign Client 注解接口）进行绑定。
+ * 这个接口的主要作用是负责创建和配置 Feign 客户端实例，并将其与目标服务进行关联。
+ *
  * @author Spencer Gibb
  */
 public interface Targeter {

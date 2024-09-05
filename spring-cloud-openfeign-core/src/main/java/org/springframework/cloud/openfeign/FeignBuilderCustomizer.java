@@ -19,6 +19,8 @@ package org.springframework.cloud.openfeign;
 import feign.Feign;
 
 /**
+ * FeignBuilder定制化器
+ * 允许应用程序自定义 Feign 构建器。
  * Allows application to customize the Feign builder.
  *
  * @author Matt King
