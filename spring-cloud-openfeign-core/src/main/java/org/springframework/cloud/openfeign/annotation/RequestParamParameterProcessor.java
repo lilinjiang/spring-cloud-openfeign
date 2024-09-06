@@ -47,10 +47,14 @@ public class RequestParamParameterProcessor implements AnnotatedParameterProcess
 
 	@Override
 	public boolean processArgument(AnnotatedParameterContext context, Annotation annotation, Method method) {
+		// 参数下标
 		int parameterIndex = context.getParameterIndex();
+		// 参数类型
 		Class<?> parameterType = method.getParameterTypes()[parameterIndex];
+		// 方法原数据
 		MethodMetadata data = context.getMethodMetadata();
 
+		// 查询映射只能有一个
 		if (Map.class.isAssignableFrom(parameterType)) {
 			checkState(data.queryMapIndex() == null, "Query map can only be present once.");
 			data.queryMapIndex(parameterIndex);
@@ -60,11 +64,17 @@ public class RequestParamParameterProcessor implements AnnotatedParameterProcess
 
 		RequestParam requestParam = ANNOTATION.cast(annotation);
 		String name = requestParam.value();
+		// 这里就是校验必须要有参数名
 		checkState(emptyToNull(name) != null, "RequestParam.value() was empty on parameter %s of method %s",
 				parameterIndex, method.getName());
+		// 添加Parameter 参数名与参数下标的映射关系
+		// 从这个方法的处理逻辑来看,一个参数支持 多个 @RequestParam注解
 		context.setParameterName(name);
 
+		// 这一行其实就是把 RequestTemplate 中 QueryTemplate 模板中的值全部拿出来形成一个List,然后再将name对应的值占位符模板加进去
+		// 正常情况下 这里应该是取出来空列表,因为正常来讲一个QueryString参数的名称只会对应一个值
 		Collection<String> query = context.setTemplateParameter(name, data.template().queries().get(name));
+		// 这里才是将 值占位符模板加到 queries 中
 		data.template().query(name, query);
 		return true;
 	}
