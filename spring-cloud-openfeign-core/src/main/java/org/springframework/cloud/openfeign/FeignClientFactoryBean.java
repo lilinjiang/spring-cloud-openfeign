@@ -111,6 +111,9 @@ public class FeignClientFactoryBean
 
 	private boolean refreshableClient = false;
 
+	/**
+	 *  默认情况应该是空的
+	 */
 	private final List<FeignBuilderCustomizer> additionalCustomizers = new ArrayList<>();
 
 	@Override
@@ -140,13 +143,16 @@ public class FeignClientFactoryBean
 	}
 
 	private void applyBuildCustomizers(FeignContext context, Feign.Builder builder) {
+		// 容器上下文找到 FeignBuilderCustomizer
 		Map<String, FeignBuilderCustomizer> customizerMap = context.getInstances(contextId,
 				FeignBuilderCustomizer.class);
 
 		if (customizerMap != null) {
+			// 根据排序执行定制化器链
 			customizerMap.values().stream().sorted(AnnotationAwareOrderComparator.INSTANCE)
 					.forEach(feignBuilderCustomizer -> feignBuilderCustomizer.customize(builder));
 		}
+		// 走一遍 FeignClientFactoryBean 对象内部维护的定制化器
 		additionalCustomizers.forEach(customizer -> customizer.customize(builder));
 	}
 
@@ -410,7 +416,9 @@ public class FeignClientFactoryBean
 	protected <T> T loadBalance(Feign.Builder builder, FeignContext context, HardCodedTarget<T> target) {
 		Client client = getOptional(context, Client.class);
 		if (client != null) {
+			// 设置客户端
 			builder.client(client);
+			// 走 Feign.Builder 定制化器链
 			applyBuildCustomizers(context, builder);
 			Targeter targeter = get(context, Targeter.class);
 			return targeter.target(this, builder, context, target);
@@ -472,6 +480,7 @@ public class FeignClientFactoryBean
 		// 获取 Client
 		Client client = getOptional(context, Client.class);
 		if (client != null) {
+			// 因为普通URL不需要客户端负载均衡所以这里需要取到原始的 Client（能够直接执行 普通URL的）
 			if (client instanceof FeignBlockingLoadBalancerClient) {
 				// not load balancing because we have a url,
 				// but Spring Cloud LoadBalancer is on the classpath, so unwrap
