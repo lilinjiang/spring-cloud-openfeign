@@ -194,6 +194,7 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 
 	@Override
 	public MethodMetadata parseAndValidateMetadata(Class<?> targetType, Method method) {
+		// 设置处理中的方法
 		processedMethods.put(Feign.configKey(targetType, method), method);
 		return super.parseAndValidateMetadata(targetType, method);
 	}
@@ -278,8 +279,10 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 		boolean isHttpAnnotation = false;
 
 		try {
+			// 当前参数的类型是否是Pageable.class或者是Pageable.class的子类
 			if (Pageable.class.isAssignableFrom(data.method().getParameterTypes()[paramIndex])) {
 				// do not set a Pageable as QueryMap if there's an actual QueryMap param
+				// 如果存在实际的 QueryMap 参数，请不要将 Pageable 设置为 QueryMap
 				// present
 				if (!queryMapParamPresent(data)) {
 					data.queryMapIndex(paramIndex);
@@ -293,14 +296,18 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 
 		AnnotatedParameterProcessor.AnnotatedParameterContext context = new SimpleAnnotatedParameterContext(data,
 				paramIndex);
-		Method method = processedMethods.get(data.configKey());
+		// todo 此处的 Method 与 data.method() 有什么区别 ? 好像没有
+ 		Method method = processedMethods.get(data.configKey());
+		 // 循环处理当前参数上的每一个注解
 		for (Annotation parameterAnnotation : annotations) {
+			// 获取对应的注解参数处理器
 			AnnotatedParameterProcessor processor = annotatedArgumentProcessors
 					.get(parameterAnnotation.annotationType());
 			if (processor != null) {
 				Annotation processParameterAnnotation;
 				// synthesize, handling @AliasFor, while falling back to parameter name on
 				// missing String #value():
+				// 如果注解上的value未写参数名就改成参数名
 				processParameterAnnotation = synthesizeWithMethodParameterNameAsFallbackValue(parameterAnnotation,
 						method, paramIndex);
 				isHttpAnnotation |= processor.processArgument(context, processParameterAnnotation, method);
@@ -319,6 +326,11 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 		return isHttpAnnotation;
 	}
 
+	/**
+	 * 方法是否存在 QueryMap 参数
+	 * @param data 方法原数据
+	 * @return true 存在
+	 */
 	private boolean queryMapParamPresent(MethodMetadata data) {
 		Annotation[][] paramsAnnotations = data.method().getParameterAnnotations();
 		for (int i = 0; i < paramsAnnotations.length; i++) {
@@ -386,17 +398,31 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 		return annotatedArgumentResolvers;
 	}
 
+	/**
+	 * 从方法参数注解中提取属性值。
+	 * 检查注解的 value 属性是否使用了默认值。
+	 * 如果使用了默认值，并且适合用方法参数名来替代，则将参数名作为 value 的值进行回填。
+	 * 最后，生成并返回一个带有修改属性的合成注解。
+	 *
+	 */
 	private Annotation synthesizeWithMethodParameterNameAsFallbackValue(Annotation parameterAnnotation, Method method,
 			int parameterIndex) {
+		// 注解属性
 		Map<String, Object> annotationAttributes = AnnotationUtils.getAnnotationAttributes(parameterAnnotation);
+		// 获取注解默认值
 		Object defaultValue = AnnotationUtils.getDefaultValue(parameterAnnotation);
+		// 检查默认值是否是 String 类型，并且是否等于注解属性 value 的值。换句话说，如果 value 属性值等于默认值，就进入下一步。
 		if (defaultValue instanceof String && defaultValue.equals(annotationAttributes.get(AnnotationUtils.VALUE))) {
+			// 方法参数列表
 			Type[] parameterTypes = method.getGenericParameterTypes();
+			// 方法的参数名称
 			String[] parameterNames = PARAMETER_NAME_DISCOVERER.getParameterNames(method);
 			if (shouldAddParameterName(parameterIndex, parameterTypes, parameterNames)) {
+				// 则将参数名作为 value 的值进行回填。
 				annotationAttributes.put(AnnotationUtils.VALUE, parameterNames[parameterIndex]);
 			}
 		}
+		// 最后，生成并返回一个带有修改属性的合成注解。
 		return AnnotationUtils.synthesizeAnnotation(annotationAttributes, parameterAnnotation.annotationType(), null);
 	}
 
@@ -468,6 +494,7 @@ public class SpringMvcContract extends Contract.BaseContract implements Resource
 
 		@Override
 		public Collection<String> setTemplateParameter(String name, Collection<String> rest) {
+			// 添加模板参数
 			return addTemplateParameter(rest, name);
 		}
 
