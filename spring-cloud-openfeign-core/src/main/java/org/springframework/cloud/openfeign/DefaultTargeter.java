@@ -20,6 +20,7 @@ import feign.Feign;
 import feign.Target;
 
 /**
+ * 简单粗暴直接委托给 Feign.Builder的target方法直接生成动态代理对象
  * @author Spencer Gibb
  */
 class DefaultTargeter implements Targeter {
