@@ -213,9 +213,9 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 
 	private void registerFeignClient(BeanDefinitionRegistry registry, AnnotationMetadata annotationMetadata,
 			Map<String, Object> attributes) {
-		// FeignClient 注解的所在类名
+		// FeignClient 注解的所在接口类名
 		String className = annotationMetadata.getClassName();
-		// Class 对象
+		// FeignClient 注解的所在接口的 Class 对象
 		Class clazz = ClassUtils.resolveClassName(className, null);
 		// Bean 工厂
 		ConfigurableBeanFactory beanFactory = registry instanceof ConfigurableBeanFactory
@@ -231,6 +231,7 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 		factoryBean.setName(name);
 		factoryBean.setContextId(contextId);
 		factoryBean.setType(clazz);
+		// 默认情况下是false
 		factoryBean.setRefreshableClient(isClientRefreshEnabled());
 
 		// 构建 BeanDefinitionBuilder 并注册 Bean 对象获取器
